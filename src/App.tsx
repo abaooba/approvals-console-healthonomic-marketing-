@@ -1,23 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { User } from "netlify-identity-widget";
 import ConfirmModal from "./components/ConfirmModal";
 import ContextRail from "./components/ContextRail";
 import Header from "./components/Header";
-import LoginGate from "./components/LoginGate";
 import Queue from "./components/Queue";
 import Stage from "./components/Stage";
 import Toasts, { type ToastData } from "./components/Toasts";
 import { fetchQueue, sendDecision } from "./lib/api";
 import { publisherFor, truncateTitle } from "./lib/format";
-import { initIdentity, logoutIdentity, openLogin } from "./lib/identity";
 import type { DecisionAction, QueueRecord } from "./types";
 
 const LEAVE_MS = 360;
+const REVIEWER_KEY = "reviewerName";
 
 export default function App() {
-  const [authReady, setAuthReady] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-
   const [records, setRecords] = useState<QueueRecord[]>([]);
   const [entity, setEntity] = useState("");
   const [loading, setLoading] = useState(false);
@@ -35,6 +30,23 @@ export default function App() {
 
   const [confirmRecord, setConfirmRecord] = useState<QueueRecord | null>(null);
   const [toasts, setToasts] = useState<ToastData[]>([]);
+
+  const [reviewerName, setReviewerName] = useState(() => {
+    try {
+      return localStorage.getItem(REVIEWER_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  });
+
+  const updateReviewerName = useCallback((value: string) => {
+    setReviewerName(value);
+    try {
+      localStorage.setItem(REVIEWER_KEY, value);
+    } catch {
+      // storage unavailable — the name just won't persist across visits
+    }
+  }, []);
 
   const cardEls = useRef(new Map<string, HTMLDivElement>());
   const inFlightIds = useRef(new Set<string>());
@@ -78,26 +90,8 @@ export default function App() {
   }, [pushToast]);
 
   useEffect(() => {
-    initIdentity({
-      onInit: (identityUser) => {
-        setUser(identityUser);
-        setAuthReady(true);
-      },
-      onLogin: (identityUser) => setUser(identityUser),
-      onLogout: () => {
-        setUser(null);
-        setRecords([]);
-        setEntity("");
-        setSelectedId(null);
-        setLoadedOnce(false);
-        setLoadError(null);
-      },
-    });
-  }, []);
-
-  useEffect(() => {
-    if (user) void refresh();
-  }, [user, refresh]);
+    void refresh();
+  }, [refresh]);
 
   const pending = useMemo(
     () => records.filter((record) => !hiddenIds.has(record.id)),
@@ -161,7 +155,7 @@ export default function App() {
       }, LEAVE_MS);
 
       try {
-        await sendDecision(record.id, action, noteText);
+        await sendDecision(record.id, action, noteText, reviewerName.trim());
         if (action === "approve") {
           pushToast(
             `Approved — ${truncateTitle(record.title)}`,
@@ -207,7 +201,7 @@ export default function App() {
         );
       }
     },
-    [pushToast, refresh],
+    [pushToast, refresh, reviewerName],
   );
 
   const requestApprove = useCallback(
@@ -253,11 +247,6 @@ export default function App() {
     );
   }, [confirmRecord, decide, notes, selectedId]);
 
-  if (!authReady) return null;
-  if (!user) return <LoginGate onLogin={openLogin} />;
-
-  const userName = user.user_metadata?.full_name || user.email || "reviewer";
-
   return (
     <>
       <div className="shell">
@@ -265,10 +254,10 @@ export default function App() {
           count={pending.length}
           filter={filter}
           onFilter={setFilter}
-          userName={userName}
+          reviewerName={reviewerName}
+          onReviewerName={updateReviewerName}
           onRefresh={() => void refresh()}
           refreshing={loading}
-          onSignOut={logoutIdentity}
         />
         <div className="cols">
           <Queue

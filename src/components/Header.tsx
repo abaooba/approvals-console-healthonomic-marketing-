@@ -6,20 +6,20 @@ interface HeaderProps {
   count: number;
   filter: string;
   onFilter: (filter: string) => void;
-  userName: string;
+  reviewerName: string;
+  onReviewerName: (name: string) => void;
   onRefresh: () => void;
   refreshing: boolean;
-  onSignOut: () => void;
 }
 
 export default function Header({
   count,
   filter,
   onFilter,
-  userName,
+  reviewerName,
+  onReviewerName,
   onRefresh,
   refreshing,
-  onSignOut,
 }: HeaderProps) {
   return (
     <header>
@@ -43,10 +43,14 @@ export default function Header({
         {refreshing ? "↻ Refreshing…" : "↻ Refresh"}
       </button>
       <span className="who">
-        Reviewing as <b>{userName}</b>
-        <button className="signout" onClick={onSignOut}>
-          Sign out
-        </button>
+        Reviewing as{" "}
+        <input
+          className="who-name"
+          value={reviewerName}
+          placeholder="Add your name"
+          onChange={(event) => onReviewerName(event.target.value)}
+          aria-label="Reviewer name"
+        />
       </span>
     </header>
   );

@@ -1,12 +1,9 @@
 import type { DecisionAction, QueueResponse } from "../types";
-import { getToken } from "./identity";
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = await getToken();
   const response = await fetch(path, {
     ...init,
     headers: {
-      Authorization: `Bearer ${token}`,
       ...(init.body ? { "Content-Type": "application/json" } : {}),
       ...(init.headers as Record<string, string> | undefined),
     },
@@ -33,9 +30,15 @@ export function sendDecision(
   recordId: string,
   action: DecisionAction,
   notes: string,
+  reviewedBy: string,
 ): Promise<unknown> {
   return request("/api/decide", {
     method: "POST",
-    body: JSON.stringify({ recordId, action, notes: notes || undefined }),
+    body: JSON.stringify({
+      recordId,
+      action,
+      notes: notes || undefined,
+      reviewedBy: reviewedBy || undefined,
+    }),
   });
 }

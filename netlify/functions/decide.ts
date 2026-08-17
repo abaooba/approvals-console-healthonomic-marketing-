@@ -6,22 +6,16 @@ import {
   json,
 } from "./lib/airtable";
 
-interface IdentityUser {
-  email?: string;
-}
-
 // The client only ever names an action — the status written to Airtable is
-// decided here, never accepted from the request body.
+// decided here, never accepted from the request body. Access control is
+// Netlify's site-wide password protection, which fronts /api/* too.
 const STATUS_FOR_ACTION = {
   approve: "Approved",
   revise: "Needs Revision",
 } as const;
 
-export const handler: Handler = async (event, context) => {
+export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") return json(405, { error: "Method not allowed" });
-
-  const user = context.clientContext?.user as IdentityUser | undefined;
-  if (!user?.email) return json(401, { error: "Unauthorized" });
 
   let body: Record<string, unknown>;
   try {
@@ -33,6 +27,10 @@ export const handler: Handler = async (event, context) => {
   const recordId = typeof body.recordId === "string" ? body.recordId : "";
   const action = body.action;
   const notes = typeof body.notes === "string" ? body.notes.trim() : "";
+  const reviewedBy =
+    typeof body.reviewedBy === "string"
+      ? body.reviewedBy.trim().slice(0, 200)
+      : "";
 
   if (!recordId) return json(400, { error: "recordId is required" });
   if (action !== "approve" && action !== "revise") {
@@ -46,8 +44,8 @@ export const handler: Handler = async (event, context) => {
 
   const fields: Record<string, string> = {
     Status: STATUS_FOR_ACTION[action],
-    "Reviewed By": user.email,
   };
+  if (reviewedBy) fields["Reviewed By"] = reviewedBy;
   if (notes) fields["Reviewer Notes"] = notes;
 
   try {

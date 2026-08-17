@@ -10,24 +10,25 @@ browser.
 - **Frontend:** Vite + React 18, plain CSS (design ported from
   `design/mockup.html`)
 - **API:** Netlify Functions (TypeScript) proxying the Airtable API
-- **Auth:** Netlify Identity (invite-only); functions reject requests without
-  a valid Identity JWT
+- **Access control:** Netlify's site-wide password protection (enabled in the
+  Netlify dashboard), which fronts every route on the site — including
+  `/api/*` — so the functions carry no auth logic of their own
 
 ## Local development
 
-Prerequisites: Node 18+, the [Netlify CLI](https://docs.netlify.com/cli/get-started/)
-(`npm i -g netlify-cli`), and a Netlify site with Identity enabled.
+Prerequisites: Node 18+ and the
+[Netlify CLI](https://docs.netlify.com/cli/get-started/)
+(`npm i -g netlify-cli`).
 
 ```sh
 npm install
-netlify link          # link to the Netlify site so Identity works locally
 cp .env.example .env  # then fill in AIRTABLE_PAT
 netlify dev           # serves the app + functions at http://localhost:8888
 ```
 
-`netlify dev` loads `.env` into the functions, proxies `/api/*` to
-`/.netlify/functions/*`, and wires the Identity widget to the linked site.
-Sign in with an invited Identity user to see the queue.
+`netlify dev` loads `.env` into the functions and proxies `/api/*` to
+`/.netlify/functions/*`. There is no password prompt locally — password
+protection is applied by Netlify's edge on the deployed site only.
 
 `npm run build` type-checks the app and the functions, then builds the client
 bundle.
@@ -60,9 +61,15 @@ Create the token at <https://airtable.com/create/tokens> with:
 
 1. Create the site from this repo — `netlify.toml` provides the build command,
    publish directory, functions directory, and the `/api/*` redirect.
-2. Enable **Identity**, set registration to **Invite only**, and invite the
-   reviewers.
+2. Turn on **password protection** (Site configuration → Access & security)
+   and share the password with the reviewers.
 3. Add the environment variables above.
+
+## Reviewer attribution
+
+The header's "Reviewing as …" field is an editable name, remembered in the
+browser (localStorage). It is written to the `Reviewed By` field with every
+decision, so reviewers should fill it in before approving.
 
 Approving writes `Status: Approved` (plus `Reviewed By` and any notes);
 sending back writes `Status: Needs Revision` with the required

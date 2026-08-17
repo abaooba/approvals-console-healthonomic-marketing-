@@ -41,8 +41,9 @@ header{display:flex;align-items:center;gap:20px;padding:0 20px;background:var(--
 .chip:disabled{opacity:.55;cursor:default;pointer-events:none}
 .who{font-size:12.5px;color:var(--muted);margin-left:16px}
 .who b{color:var(--ink)}
-.signout{font-size:12px;color:var(--muted);margin-left:12px;text-decoration:underline}
-.signout:hover{color:var(--accent)}
+.who-name{font-family:var(--font-ui);font-size:12.5px;font-weight:700;color:var(--ink);border:none;background:transparent;border-bottom:1px dashed var(--line);padding:1px 2px;width:110px}
+.who-name:focus{outline:none;border-bottom-color:var(--accent)}
+.who-name::placeholder{color:#a6adc0;font-weight:500}
 
 /* ===== Columns ===== */
 .cols{display:grid;grid-template-columns:340px 1fr 320px;min-height:0}
@@ -196,13 +197,6 @@ header{display:flex;align-items:center;gap:20px;padding:0 20px;background:var(--
 .toast.fade{opacity:0;transition:opacity .3s}
 .toast small{opacity:.8;display:block;font-size:11.5px;margin-top:2px}
 @keyframes pop{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
-
-/* Login gate */
-.gate{height:100vh;display:flex;align-items:center;justify-content:center;background:
-  radial-gradient(circle at 20% 0%, rgba(35,81,163,.045), transparent 40%), var(--bg)}
-.gate-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow-md);padding:36px 40px;width:380px;display:flex;flex-direction:column;gap:14px;align-items:flex-start}
-.gate-text{font-size:13.5px;color:var(--muted)}
-.gate-btn{width:100%}
 
 /* GBP confirm modal */
 .overlay{position:fixed;inset:0;background:rgba(21,54,110,.32);display:flex;align-items:center;justify-content:center;z-index:60}

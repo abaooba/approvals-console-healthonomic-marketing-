@@ -33,9 +33,10 @@ const CAMPAIGN_FIELDS = [
 
 const str = (value: unknown): string => (typeof value === "string" ? value : "");
 
-export const handler: Handler = async (event, context) => {
+// Access control is Netlify's site-wide password protection, which fronts
+// every route on the site domain — including /api/* — before it reaches us.
+export const handler: Handler = async (event) => {
   if (event.httpMethod !== "GET") return json(405, { error: "Method not allowed" });
-  if (!context.clientContext?.user) return json(401, { error: "Unauthorized" });
 
   try {
     const cfg = getConfig();
