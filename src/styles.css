@@ -185,6 +185,9 @@ header{display:flex;align-items:center;gap:20px;padding:0 20px;background:var(--
 .btn-back:hover{background:#f8e8cd}
 .btn-cancel{background:var(--bg);color:var(--body);border:1px solid var(--line)}
 .btn-cancel:hover{border-color:var(--muted)}
+.btn-generate{width:100%;background:var(--navy);color:#fff;margin-bottom:12px;box-shadow:var(--shadow-sm)}
+.btn-generate:hover{background:#0f2a58}
+.btn-generate:disabled{opacity:.6;cursor:default}
 .btn-note{font-size:11.5px;color:var(--muted);text-align:center;line-height:1.4}
 .btn-note code{font-family:var(--mono);font-size:10.5px}
 

@@ -6,6 +6,8 @@ interface QueueProps {
   records: QueueRecord[];
   filter: string;
   loading: boolean;
+  generating: boolean;
+  onGenerate: () => void;
   selectedId: string | null;
   leavingIds: ReadonlySet<string>;
   onSelect: (id: string) => void;
@@ -19,6 +21,8 @@ export default function Queue({
   records,
   filter,
   loading,
+  generating,
+  onGenerate,
   selectedId,
   leavingIds,
   onSelect,
@@ -31,6 +35,13 @@ export default function Queue({
       <div className="queue-head">
         Pending review{entity ? ` · ${entity}` : ""}
       </div>
+      <button
+        className="btn btn-generate"
+        onClick={onGenerate}
+        disabled={generating}
+      >
+        {generating ? "Generating…" : "✦ Generate Campaigns"}
+      </button>
       <div>
         {records.length === 0 ? (
           <div className="empty-queue">

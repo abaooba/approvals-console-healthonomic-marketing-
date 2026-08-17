@@ -11,6 +11,8 @@ import type { DecisionAction, QueueRecord } from "./types";
 
 const LEAVE_MS = 360;
 const REVIEWER_KEY = "reviewerName";
+const GENERATE_WEBHOOK =
+  "https://kcajas3000.app.n8n.cloud/webhook/marketing-agent-hx3m9v";
 
 export default function App() {
   const [records, setRecords] = useState<QueueRecord[]>([]);
@@ -30,6 +32,7 @@ export default function App() {
 
   const [confirmRecord, setConfirmRecord] = useState<QueueRecord | null>(null);
   const [toasts, setToasts] = useState<ToastData[]>([]);
+  const [generating, setGenerating] = useState(false);
 
   const [reviewerName, setReviewerName] = useState(() => {
     try {
@@ -92,6 +95,27 @@ export default function App() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const generateCampaigns = useCallback(async () => {
+    setGenerating(true);
+    try {
+      const res = await fetch(GENERATE_WEBHOOK, { method: "POST" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      pushToast(
+        "Marketing Agent started.",
+        "Drafts will appear in the queue in ~1-2 minutes.",
+        "ok",
+      );
+    } catch {
+      pushToast(
+        "Agent didn't start (workflow may be inactive in n8n).",
+        "Try again or check n8n.",
+        "err",
+      );
+    } finally {
+      setGenerating(false);
+    }
+  }, [pushToast]);
 
   const pending = useMemo(
     () => records.filter((record) => !hiddenIds.has(record.id)),
@@ -265,6 +289,8 @@ export default function App() {
             records={visible}
             filter={filter}
             loading={loading && !loadedOnce}
+            generating={generating}
+            onGenerate={() => void generateCampaigns()}
             selectedId={selectedId}
             leavingIds={leavingIds}
             onSelect={selectRecord}
