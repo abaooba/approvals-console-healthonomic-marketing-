@@ -1,0 +1,318 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { User } from "netlify-identity-widget";
+import ConfirmModal from "./components/ConfirmModal";
+import ContextRail from "./components/ContextRail";
+import Header from "./components/Header";
+import LoginGate from "./components/LoginGate";
+import Queue from "./components/Queue";
+import Stage from "./components/Stage";
+import Toasts, { type ToastData } from "./components/Toasts";
+import { fetchQueue, sendDecision } from "./lib/api";
+import { publisherFor, truncateTitle } from "./lib/format";
+import { initIdentity, logoutIdentity, openLogin } from "./lib/identity";
+import type { DecisionAction, QueueRecord } from "./types";
+
+const LEAVE_MS = 360;
+
+export default function App() {
+  const [authReady, setAuthReady] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+
+  const [records, setRecords] = useState<QueueRecord[]>([]);
+  const [entity, setEntity] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [loadedOnce, setLoadedOnce] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [filter, setFilter] = useState("All");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(new Set());
+  const [leavingIds, setLeavingIds] = useState<ReadonlySet<string>>(new Set());
+
+  const [notes, setNotes] = useState("");
+  const [notesErr, setNotesErr] = useState(false);
+  const [focusNotesTick, setFocusNotesTick] = useState(0);
+
+  const [confirmRecord, setConfirmRecord] = useState<QueueRecord | null>(null);
+  const [toasts, setToasts] = useState<ToastData[]>([]);
+
+  const cardEls = useRef(new Map<string, HTMLDivElement>());
+  const inFlightIds = useRef(new Set<string>());
+  const toastSeq = useRef(0);
+
+  const pushToast = useCallback(
+    (msg: string, sub: string | undefined, cls: ToastData["cls"]) => {
+      toastSeq.current += 1;
+      const toast = { id: toastSeq.current, msg, sub, cls };
+      setToasts((prev) => [...prev, toast]);
+    },
+    [],
+  );
+
+  const dismissToast = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, []);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const data = await fetchQueue();
+      setRecords(data.records);
+      setEntity(data.entity);
+      // Keep only decisions still awaiting their API response hidden.
+      setHiddenIds(
+        (prev) => new Set([...prev].filter((id) => inFlightIds.current.has(id))),
+      );
+      setLeavingIds(
+        (prev) => new Set([...prev].filter((id) => inFlightIds.current.has(id))),
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setLoadError(message);
+      pushToast("Couldn't load the queue", message, "err");
+    } finally {
+      setLoading(false);
+      setLoadedOnce(true);
+    }
+  }, [pushToast]);
+
+  useEffect(() => {
+    initIdentity({
+      onInit: (identityUser) => {
+        setUser(identityUser);
+        setAuthReady(true);
+      },
+      onLogin: (identityUser) => setUser(identityUser),
+      onLogout: () => {
+        setUser(null);
+        setRecords([]);
+        setEntity("");
+        setSelectedId(null);
+        setLoadedOnce(false);
+        setLoadError(null);
+      },
+    });
+  }, []);
+
+  useEffect(() => {
+    if (user) void refresh();
+  }, [user, refresh]);
+
+  const pending = useMemo(
+    () => records.filter((record) => !hiddenIds.has(record.id)),
+    [records, hiddenIds],
+  );
+  const visible = useMemo(
+    () =>
+      pending.filter(
+        (record) => filter === "All" || record.channel === filter,
+      ),
+    [pending, filter],
+  );
+  const selected = visible.find((record) => record.id === selectedId) ?? null;
+
+  const selectRecord = useCallback(
+    (id: string | null) => {
+      if (id === selectedId) return;
+      setSelectedId(id);
+      setNotes("");
+      setNotesErr(false);
+    },
+    [selectedId],
+  );
+
+  useEffect(() => {
+    if (visible.length === 0) {
+      if (selectedId !== null) selectRecord(null);
+      return;
+    }
+    if (!visible.some((record) => record.id === selectedId)) {
+      selectRecord(visible[0].id);
+    }
+  }, [visible, selectedId, selectRecord]);
+
+  const decide = useCallback(
+    async (
+      record: QueueRecord,
+      action: DecisionAction,
+      noteText: string,
+      wasSelected: boolean,
+    ) => {
+      if (inFlightIds.current.has(record.id)) return;
+      inFlightIds.current.add(record.id);
+
+      // Animate the card out exactly like the mockup: freeze its height,
+      // then let .leaving collapse it.
+      let rolledBack = false;
+      const el = cardEls.current.get(record.id);
+      if (el) el.style.maxHeight = `${el.offsetHeight}px`;
+      requestAnimationFrame(() => {
+        if (rolledBack) return;
+        setLeavingIds((prev) => new Set(prev).add(record.id));
+      });
+      const hideTimer = window.setTimeout(() => {
+        setLeavingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(record.id);
+          return next;
+        });
+        setHiddenIds((prev) => new Set(prev).add(record.id));
+      }, LEAVE_MS);
+
+      try {
+        await sendDecision(record.id, action, noteText);
+        if (action === "approve") {
+          pushToast(
+            `Approved — ${truncateTitle(record.title)}`,
+            `Status → Approved · webhook fires ${publisherFor(record.channel)}`,
+            "ok",
+          );
+        } else {
+          pushToast(
+            `Sent back — ${truncateTitle(record.title)}`,
+            "Status → Needs Revision · note saved to Reviewer Notes · Revision Loop queued",
+            "warn",
+          );
+        }
+        await refresh();
+        inFlightIds.current.delete(record.id);
+      } catch (err) {
+        rolledBack = true;
+        window.clearTimeout(hideTimer);
+        inFlightIds.current.delete(record.id);
+        setLeavingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(record.id);
+          return next;
+        });
+        setHiddenIds((prev) => {
+          const next = new Set(prev);
+          next.delete(record.id);
+          return next;
+        });
+        if (el) el.style.maxHeight = "";
+        // Put the reviewer back where they were: the auto-select effect may
+        // have moved selection (and wiped the notes) while the card was hidden.
+        if (wasSelected) {
+          setSelectedId(record.id);
+          setNotes(noteText);
+          setNotesErr(false);
+        }
+        const message = err instanceof Error ? err.message : String(err);
+        pushToast(
+          `${action === "approve" ? "Approve" : "Send back"} failed — ${truncateTitle(record.title)}`,
+          message,
+          "err",
+        );
+      }
+    },
+    [pushToast, refresh],
+  );
+
+  const requestApprove = useCallback(
+    (record: QueueRecord) => {
+      if (record.channel === "GBP Post") {
+        setConfirmRecord(record);
+        return;
+      }
+      void decide(
+        record,
+        "approve",
+        record.id === selectedId ? notes.trim() : "",
+        record.id === selectedId,
+      );
+    },
+    [decide, notes, selectedId],
+  );
+
+  const requestSendBack = useCallback(
+    (record: QueueRecord) => {
+      const note = record.id === selectedId ? notes.trim() : "";
+      if (!note) {
+        setSelectedId(record.id);
+        setNotes("");
+        setNotesErr(true);
+        setFocusNotesTick((tick) => tick + 1);
+        return;
+      }
+      void decide(record, "revise", note, true);
+    },
+    [decide, notes, selectedId],
+  );
+
+  const confirmApprove = useCallback(() => {
+    if (!confirmRecord) return;
+    const record = confirmRecord;
+    setConfirmRecord(null);
+    void decide(
+      record,
+      "approve",
+      record.id === selectedId ? notes.trim() : "",
+      record.id === selectedId,
+    );
+  }, [confirmRecord, decide, notes, selectedId]);
+
+  if (!authReady) return null;
+  if (!user) return <LoginGate onLogin={openLogin} />;
+
+  const userName = user.user_metadata?.full_name || user.email || "reviewer";
+
+  return (
+    <>
+      <div className="shell">
+        <Header
+          count={pending.length}
+          filter={filter}
+          onFilter={setFilter}
+          userName={userName}
+          onRefresh={() => void refresh()}
+          refreshing={loading}
+          onSignOut={logoutIdentity}
+        />
+        <div className="cols">
+          <Queue
+            entity={entity}
+            records={visible}
+            filter={filter}
+            loading={loading && !loadedOnce}
+            selectedId={selectedId}
+            leavingIds={leavingIds}
+            onSelect={selectRecord}
+            onApprove={requestApprove}
+            onSendBack={requestSendBack}
+            registerCard={(id, el) => {
+              if (el) cardEls.current.set(id, el);
+              else cardEls.current.delete(id);
+            }}
+          />
+          <Stage
+            record={selected}
+            loading={loading && !loadedOnce}
+            error={loadError}
+            entity={entity}
+          />
+          <ContextRail
+            record={selected}
+            notes={notes}
+            notesErr={notesErr}
+            focusTick={focusNotesTick}
+            onNotesChange={(value) => {
+              setNotes(value);
+              if (notesErr) setNotesErr(false);
+            }}
+            onApprove={() => selected && requestApprove(selected)}
+            onSendBack={() => selected && requestSendBack(selected)}
+          />
+        </div>
+      </div>
+      {confirmRecord && (
+        <ConfirmModal
+          onConfirm={confirmApprove}
+          onCancel={() => setConfirmRecord(null)}
+        />
+      )}
+      <Toasts toasts={toasts} onDismiss={dismissToast} />
+    </>
+  );
+}
