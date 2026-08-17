@@ -33,22 +33,7 @@ protection is applied by Netlify's edge on the deployed site only.
 `npm run build` type-checks the app and the functions, then builds the client
 bundle.
 
-## Environment variables
 
-Set these in **Site settings → Environment variables** on Netlify (and in
-`.env` for local dev). They are read only by the functions — never exposed to
-the client.
-
-| Variable | Value |
-| --- | --- |
-| `AIRTABLE_PAT` | Airtable personal access token (see scopes below) |
-| `AIRTABLE_BASE_ID` | `appRKzeGVIpFGTiEu` |
-| `AIRTABLE_QUEUE_TABLE` | `tbl0D84S0Er1m5UEg` (Approvals Queue) |
-| `AIRTABLE_CAMPAIGN_TABLE` | `tblWe66mvAOvw5MTN` (Campaign Tracker) |
-| `DEFAULT_ENTITY` | `Healthonomic` |
-
-The entity is never hardcoded — point this console at a different entity's
-queue by changing `DEFAULT_ENTITY` only.
 
 ## Airtable PAT scopes
 
