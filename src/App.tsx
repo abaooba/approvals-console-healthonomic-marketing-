@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ConfirmModal from "./components/ConfirmModal";
 import ContextRail from "./components/ContextRail";
-import Header from "./components/Header";
+import Header, { type Tab } from "./components/Header";
+import PlanView from "./components/PlanView";
 import Queue from "./components/Queue";
 import Stage from "./components/Stage";
 import Toasts, { type ToastData } from "./components/Toasts";
@@ -15,6 +16,7 @@ const GENERATE_WEBHOOK =
   "https://kcajas3000.app.n8n.cloud/webhook/marketing-agent-hx3m9v";
 
 export default function App() {
+  const [tab, setTab] = useState<Tab>("approvals");
   const [records, setRecords] = useState<QueueRecord[]>([]);
   const [entity, setEntity] = useState("");
   const [loading, setLoading] = useState(false);
@@ -275,6 +277,8 @@ export default function App() {
     <>
       <div className="shell">
         <Header
+          tab={tab}
+          onTab={setTab}
           count={pending.length}
           filter={filter}
           onFilter={setFilter}
@@ -283,6 +287,9 @@ export default function App() {
           onRefresh={() => void refresh()}
           refreshing={loading}
         />
+        {tab === "plan" ? (
+          <PlanView pushToast={pushToast} />
+        ) : (
         <div className="cols">
           <Queue
             entity={entity}
@@ -320,6 +327,7 @@ export default function App() {
             onSendBack={() => selected && requestSendBack(selected)}
           />
         </div>
+        )}
       </div>
       {confirmRecord && (
         <ConfirmModal

@@ -1,4 +1,4 @@
-import type { DecisionAction, QueueResponse } from "../types";
+import type { DecisionAction, PlansResponse, QueueResponse } from "../types";
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(path, {
@@ -40,5 +40,30 @@ export function sendDecision(
       notes: notes || undefined,
       reviewedBy: reviewedBy || undefined,
     }),
+  });
+}
+
+export function fetchPlans(): Promise<PlansResponse> {
+  return request<PlansResponse>("/api/plans");
+}
+
+export function approvePlanGroup(recordIds: string[]): Promise<unknown> {
+  return request("/api/plan-decide", {
+    method: "POST",
+    body: JSON.stringify({ action: "approve-group", recordIds }),
+  });
+}
+
+export function rejectPlan(recordId: string): Promise<unknown> {
+  return request("/api/plan-decide", {
+    method: "POST",
+    body: JSON.stringify({ action: "reject", recordId }),
+  });
+}
+
+export function revisePlan(recordId: string, notes: string): Promise<unknown> {
+  return request("/api/plan-decide", {
+    method: "POST",
+    body: JSON.stringify({ action: "revise", recordId, notes }),
   });
 }

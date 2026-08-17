@@ -23,3 +23,23 @@ export interface QueueResponse {
 }
 
 export type DecisionAction = "approve" | "revise";
+
+export interface PlanRecord {
+  id: string;
+  campaignGroup: string;
+  month: string;
+  campaignName: string;
+  channel: string;
+  scheduledDate: string | null;
+  planStatus: string;
+  briefObjective: string;
+  keyMessaging: string;
+  targetKeyword: string;
+  gbpLocation: string;
+  rationale: string;
+  reviewerNotes: string;
+}
+
+export interface PlansResponse {
+  records: PlanRecord[];
+}

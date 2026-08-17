@@ -40,6 +40,12 @@ export function getConfig(): AirtableConfig {
   };
 }
 
+// Separate from getConfig so the approvals endpoints keep working on deploys
+// that haven't set the plans table variable yet.
+export function getPlansTable(): string {
+  return requireEnv("AIRTABLE_PLANS_TABLE");
+}
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function airtableRequest<T = unknown>(

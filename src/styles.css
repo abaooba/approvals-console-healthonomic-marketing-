@@ -39,7 +39,12 @@ header{display:flex;align-items:center;gap:20px;padding:0 20px;background:var(--
 .chip:hover{border-color:var(--accent);color:var(--accent)}
 .chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
 .chip:disabled{opacity:.55;cursor:default;pointer-events:none}
+.tabs{display:flex;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px}
+.tab{font-size:12.5px;font-weight:600;color:var(--muted);border-radius:999px;padding:4px 14px;transition:.15s}
+.tab:hover{color:var(--accent)}
+.tab.on{background:var(--navy);color:#fff}
 .who{font-size:12.5px;color:var(--muted);margin-left:16px}
+.who.push{margin-left:auto}
 .who b{color:var(--ink)}
 .who-name{font-family:var(--font-ui);font-size:12.5px;font-weight:700;color:var(--ink);border:none;background:transparent;border-bottom:1px dashed var(--line);padding:1px 2px;width:110px}
 .who-name:focus{outline:none;border-bottom-color:var(--accent)}
@@ -190,6 +195,49 @@ header{display:flex;align-items:center;gap:20px;padding:0 20px;background:var(--
 .btn-generate:disabled{opacity:.6;cursor:default}
 .btn-note{font-size:11.5px;color:var(--muted);text-align:center;line-height:1.4}
 .btn-note code{font-family:var(--mono);font-size:10.5px}
+
+/* ===== Quarterly Plan ===== */
+.plan{overflow-y:auto;min-height:0;padding:24px 32px;background:
+  radial-gradient(circle at 20% 0%, rgba(35,81,163,.045), transparent 40%), var(--bg)}
+.plan-inner{max-width:860px;margin:0 auto}
+.plan-bar{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.btn-plan{background:var(--navy);color:#fff;padding:12px 22px;box-shadow:var(--shadow-sm)}
+.btn-plan:hover{background:#0f2a58}
+.btn-plan:disabled{opacity:.6;cursor:default}
+.plan-group{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow-sm);margin-bottom:12px;overflow:hidden}
+.pg-head{display:flex;align-items:center;gap:10px;padding:14px 16px;cursor:pointer}
+.pg-caret{color:var(--muted);font-size:11px;width:12px;flex-shrink:0;transition:transform .15s;display:inline-block}
+.pg-caret.open{transform:rotate(90deg)}
+.pg-name{font-family:var(--font-display);font-weight:600;font-size:15px;color:var(--ink);letter-spacing:-.01em}
+.pg-month{font-size:11.5px;font-weight:600;color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:2px 9px}
+.pg-count{font-size:12px;color:var(--muted)}
+.pg-approve{margin-left:auto;font-size:12.5px;font-weight:700;color:var(--approve);background:var(--approve-bg);border-radius:8px;padding:7px 14px;transition:.12s}
+.pg-approve:hover{background:#d7efe2}
+.pg-approve:disabled{opacity:.6;cursor:default}
+.pg-hint{font-size:11.5px;color:var(--muted);padding:0 16px 10px 38px;line-height:1.4}
+.plan-row{border-top:1px solid var(--line)}
+.pr-main{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;transition:background .12s}
+.pr-main:hover{background:var(--bg)}
+.pr-name{font-size:13.5px;font-weight:600;color:var(--ink);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pr-date{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;flex-shrink:0}
+.st-badge{font-size:10.5px;font-weight:700;letter-spacing:.05em;border-radius:6px;padding:2.5px 8px;text-transform:uppercase;flex-shrink:0}
+.st-Proposed{background:#eef0f4;color:#5c6474}
+.st-Approved{background:var(--approve-bg);color:var(--approve)}
+.st-Needs-Revision{background:var(--revise-bg);color:var(--revise)}
+.st-Rejected{background:var(--danger-bg);color:var(--danger)}
+.pr-detail{padding:2px 16px 14px 38px;display:grid;gap:8px;font-size:13px}
+.pr-field .k{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:2px}
+.pr-actions{display:flex;gap:8px;margin-top:4px}
+.pr-btn{font-size:12px;font-weight:700;border-radius:8px;padding:6px 12px;transition:.12s}
+.pr-btn:disabled{opacity:.6;cursor:default}
+.pr-reject{color:var(--danger);background:var(--danger-bg)}
+.pr-reject:hover{background:#f9dcda}
+.pr-revise{color:var(--revise);background:var(--revise-bg)}
+.pr-revise:hover{background:#f8e8cd}
+.pr-note{display:flex;gap:8px;align-items:flex-end}
+.pr-note .notes{min-height:56px}
+.pr-note-save{color:#fff;background:var(--accent)}
+.pr-note-save:hover{background:var(--accent-hover)}
 
 /* Toasts */
 .toasts{position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:8px;z-index:50}
