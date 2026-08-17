@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Approvals — Cajas Ops</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#15366E;
+  --accent:#2351A3;
+  --accent-hover:#1B4187;
+  --ink:#1a1f2b;
+  --body:#454545;
+  --muted:#7a8194;
+  --bg:#f7f8fa;
+  --card:#ffffff;
+  --line:#e5e8ef;
+  --approve:#1a7f4e;
+  --approve-bg:#e9f6ef;
+  --revise:#b0721a;
+  --revise-bg:#fdf3e3;
+  --font-display:"Bricolage Grotesque", sans-serif;
+  --font-ui:"Instrument Sans", sans-serif;
+  --mono:ui-monospace, "SF Mono", Menlo, monospace;
+  --r:12px;
+  --shadow-sm:0 1px 2px rgba(21,54,110,.06);
+  --shadow-md:0 4px 16px rgba(21,54,110,.10);
+  --shadow-lg:0 12px 32px rgba(21,54,110,.16);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--font-ui);background:var(--bg);color:var(--body);font-size:15px;line-height:1.55;overflow:hidden}
+button{font-family:var(--font-ui);cursor:pointer;border:none;background:none}
+button:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ===== Shell ===== */
+.shell{display:grid;grid-template-rows:56px 1fr;height:100vh}
+header{display:flex;align-items:center;gap:20px;padding:0 20px;background:var(--card);border-bottom:1px solid var(--line)}
+.wordmark{font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--navy);letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
+.wordmark .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);display:inline-block}
+.pending-pill{font-size:12.5px;font-weight:600;background:var(--navy);color:#fff;border-radius:999px;padding:3px 10px}
+.filters{display:flex;gap:6px;margin-left:auto}
+.chip{font-size:12.5px;font-weight:600;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:5px 12px;background:var(--card);transition:.15s}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.who{font-size:12.5px;color:var(--muted);margin-left:16px}
+.who b{color:var(--ink)}
+
+/* ===== Columns ===== */
+.cols{display:grid;grid-template-columns:340px 1fr 320px;min-height:0}
+.queue{border-right:1px solid var(--line);overflow-y:auto;padding:16px 14px;background:var(--bg)}
+.queue-head{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);padding:0 6px 10px}
+
+/* ===== Queue cards ===== */
+.qcard{position:relative;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px 14px 12px;margin-bottom:10px;box-shadow:var(--shadow-sm);cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,border-color .18s;overflow:hidden}
+.qcard:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:#c9d4e8}
+.qcard.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),var(--shadow-md)}
+.qcard.leaving{transform:translateX(110%);opacity:0;transition:transform .35s ease,opacity .35s ease,margin .35s .1s,max-height .35s .1s,padding .35s .1s;max-height:0!important;margin-bottom:0;padding-top:0;padding-bottom:0;border-width:0}
+.qtop{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.ch-badge{font-size:10.5px;font-weight:700;letter-spacing:.05em;border-radius:6px;padding:2.5px 7px;text-transform:uppercase}
+.ch-Instagram{background:#fbe9f1;color:#b02a6b}
+.ch-Facebook{background:#e8eefc;color:#2350a3}
+.ch-Blog{background:#e9f3ee;color:#1a7f4e}
+.ch-GBP{background:#fdf0e0;color:#a86412}
+.ch-Newsletter{background:#efeafc;color:#5b3fb0}
+.qage{font-size:11.5px;color:var(--muted);margin-left:auto;font-variant-numeric:tabular-nums}
+.qtitle{font-family:var(--font-display);font-weight:600;font-size:14.5px;color:var(--ink);line-height:1.3;letter-spacing:-.01em}
+.qexcerpt{font-size:12.5px;color:var(--muted);margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.qcamp{font-size:11.5px;color:var(--accent);font-weight:600;margin-top:8px}
+.qcard .flag{font-size:11px;font-weight:600;color:var(--revise);background:var(--revise-bg);border-radius:6px;padding:2px 7px;margin-top:8px;display:inline-block}
+
+/* Hover quick actions — the signature */
+.quick{position:absolute;inset:auto 0 0 0;display:flex;transform:translateY(100%);transition:transform .18s ease;border-top:1px solid var(--line)}
+.qcard:hover .quick,.qcard:focus-within .quick{transform:translateY(0)}
+.qcard:hover .qcamp,.qcard:focus-within .qcamp{visibility:hidden}
+.quick button{flex:1;padding:9px 0;font-size:12.5px;font-weight:700;transition:.12s}
+.quick .qa-approve{color:var(--approve);background:var(--approve-bg)}
+.quick .qa-approve:hover{background:#d7efe2}
+.quick .qa-back{color:var(--revise);background:var(--revise-bg);border-left:1px solid var(--line)}
+.quick .qa-back:hover{background:#f8e8cd}
+
+.empty-queue{text-align:center;color:var(--muted);font-size:13.5px;padding:48px 20px}
+.empty-queue .big{font-family:var(--font-display);font-size:34px;color:var(--navy);font-weight:700;display:block;margin-bottom:8px}
+
+/* ===== Stage ===== */
+.stage{overflow-y:auto;padding:28px 32px;display:flex;flex-direction:column;align-items:center;background:
+  radial-gradient(circle at 20% 0%, rgba(35,81,163,.045), transparent 40%), var(--bg)}
+.stage-label{align-self:flex-start;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:16px}
+.stage-label b{color:var(--navy)}
+
+/* IG phone frame */
+.phone{width:340px;background:#000;border-radius:36px;padding:10px;box-shadow:var(--shadow-lg)}
+.phone-screen{background:#fff;border-radius:28px;overflow:hidden}
+.ig-head{display:flex;align-items:center;gap:9px;padding:10px 12px}
+.avatar{width:30px;height:30px;border-radius:50%;background:conic-gradient(var(--navy),var(--accent),var(--navy));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px}
+.ig-name{font-size:12.5px;font-weight:700;color:#111}
+.ig-loc{font-size:10.5px;color:#666}
+.ig-img{aspect-ratio:1/1;background:linear-gradient(150deg,var(--navy) 0%,var(--accent) 70%,#3b6fd1 100%);display:flex;flex-direction:column;justify-content:flex-end;padding:22px;position:relative}
+.ig-img .tpl{position:absolute;top:12px;right:12px;font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.55);letter-spacing:.05em}
+.ig-img h3{font-family:var(--font-display);color:#fff;font-size:23px;font-weight:700;line-height:1.15;letter-spacing:-.01em}
+.ig-img .brand-line{width:36px;height:3px;background:#fff;border-radius:2px;margin-bottom:12px;opacity:.85}
+.ig-actions{display:flex;gap:14px;padding:10px 12px 2px;font-size:16px;color:#111}
+.ig-cap{padding:4px 12px 14px;font-size:12.5px;color:#111;line-height:1.45}
+.ig-cap .u{font-weight:700}
+.ig-cap .more{color:#888;cursor:pointer}
+.ig-cap .tags{color:#2350a3}
+
+/* FB card */
+.fbcard{width:480px;background:#fff;border-radius:10px;box-shadow:var(--shadow-lg);overflow:hidden}
+.fb-head{display:flex;gap:10px;padding:12px 14px}
+.fb-name{font-size:14px;font-weight:700;color:#111}
+.fb-meta{font-size:11.5px;color:#65676b}
+.fb-body{padding:0 14px 12px;font-size:14px;color:#050505;line-height:1.45;white-space:pre-line}
+.fb-img{aspect-ratio:1.91/1;background:linear-gradient(150deg,var(--navy),var(--accent));display:flex;align-items:center;padding:28px}
+.fb-img h3{font-family:var(--font-display);color:#fff;font-size:26px;font-weight:700;line-height:1.15;max-width:70%}
+.fb-bar{display:flex;justify-content:space-around;border-top:1px solid #e4e6eb;padding:8px 0;font-size:12.5px;color:#65676b;font-weight:600}
+
+/* GBP card */
+.gbp{width:420px;background:#fff;border-radius:14px;box-shadow:var(--shadow-lg);overflow:hidden;font-family:arial,helvetica,sans-serif}
+.gbp-img{aspect-ratio:16/9;background:linear-gradient(150deg,var(--navy),var(--accent));display:flex;align-items:center;padding:24px}
+.gbp-img h3{font-family:var(--font-display);color:#fff;font-size:22px;font-weight:700;line-height:1.2;max-width:80%}
+.gbp-body{padding:16px 18px}
+.gbp-src{font-size:12px;color:#70757a;margin-bottom:6px}
+.gbp-text{font-size:13.5px;color:#202124;line-height:1.5}
+.gbp-cta{display:inline-block;margin-top:14px;color:#1a73e8;font-weight:600;font-size:14px;border:1px solid #dadce0;border-radius:999px;padding:7px 18px}
+.gbp-note{width:420px;margin-top:12px;font-size:12px;color:var(--revise);background:var(--revise-bg);border-radius:8px;padding:8px 12px}
+.gbp-note b{font-weight:700}
+
+/* Blog frame */
+.blog{width:min(660px,100%);background:#fff;border-radius:var(--r);box-shadow:var(--shadow-lg);overflow:hidden}
+.blog-chrome{display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid var(--line);align-items:center}
+.blog-chrome i{width:9px;height:9px;border-radius:50%;background:#d9dde6;display:block}
+.blog-url{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:8px}
+.blog-body{padding:34px 44px 40px;max-height:520px;overflow-y:auto}
+.blog-body h1{font-family:var(--font-display);color:var(--navy);font-size:27px;line-height:1.2;letter-spacing:-.015em;margin-bottom:14px}
+.blog-body h2{font-family:var(--font-display);color:var(--navy);font-size:19px;margin:22px 0 8px}
+.blog-body p{font-size:14.5px;color:var(--body);margin-bottom:12px;line-height:1.7}
+.blog-body a{color:var(--accent)}
+.blog-body .cite{font-size:12.5px;color:var(--muted)}
+.wc{font-size:11.5px;color:var(--muted);margin-top:10px;font-variant-numeric:tabular-nums}
+
+/* Email frame */
+.mail{width:min(600px,100%);background:#fff;border-radius:var(--r);box-shadow:var(--shadow-lg);overflow:hidden}
+.mail-head{padding:16px 22px;border-bottom:1px solid var(--line)}
+.mail-sub{font-family:var(--font-display);font-weight:600;font-size:17px;color:var(--ink)}
+.mail-from{font-size:12.5px;color:var(--muted);margin-top:4px}
+.mail-body{padding:22px;font-size:14px;line-height:1.65;white-space:pre-line;max-height:440px;overflow-y:auto}
+.mail-body h4{font-family:var(--font-display);color:var(--navy);font-size:15.5px;margin:14px 0 4px}
+
+/* ===== Context rail ===== */
+.context{border-left:1px solid var(--line);background:var(--card);overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:18px}
+.ctx-sec h4{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.brief-card{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:13px 14px;font-size:13px}
+.brief-card .row{margin-bottom:10px}
+.brief-card .row:last-child{margin-bottom:0}
+.brief-card .k{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:2px}
+.meta-list{font-size:12.5px;display:grid;gap:6px}
+.meta-list .m{display:flex;justify-content:space-between;gap:10px}
+.meta-list .k{color:var(--muted)}
+.meta-list .v{font-family:var(--mono);font-size:11.5px;color:var(--ink);text-align:right}
+.notes{width:100%;min-height:84px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-family:var(--font-ui);font-size:13.5px;resize:vertical;color:var(--ink);background:var(--bg)}
+.notes::placeholder{color:#a6adc0}
+.notes.err{border-color:var(--revise);background:var(--revise-bg)}
+.btn-row{display:grid;gap:8px;margin-top:auto}
+.btn{border-radius:10px;padding:12px 0;font-size:14px;font-weight:700;transition:.15s;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-approve{background:var(--accent);color:#fff}
+.btn-approve:hover{background:var(--accent-hover)}
+.btn-back{background:var(--revise-bg);color:var(--revise)}
+.btn-back:hover{background:#f8e8cd}
+.btn-note{font-size:11.5px;color:var(--muted);text-align:center;line-height:1.4}
+.btn-note code{font-family:var(--mono);font-size:10.5px}
+
+/* Toasts */
+.toasts{position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:8px;z-index:50}
+.toast{background:var(--navy);color:#fff;border-radius:10px;padding:12px 16px;font-size:13px;box-shadow:var(--shadow-lg);display:flex;gap:10px;align-items:flex-start;max-width:360px;animation:pop .25s ease}
+.toast.ok{background:var(--approve)}
+.toast.warn{background:var(--revise)}
+.toast small{opacity:.8;display:block;font-size:11.5px;margin-top:2px}
+@keyframes pop{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
+
+@media (max-width:1100px){.cols{grid-template-columns:300px 1fr}.context{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <span class="wordmark"><span class="dot"></span>Approvals Console</span>
+    <span class="pending-pill" id="count">5 pending</span>
+    <div class="filters" id="filters">
+      <button class="chip on" data-f="All">All</button>
+      <button class="chip" data-f="Instagram">Instagram</button>
+      <button class="chip" data-f="Facebook">Facebook</button>
+      <button class="chip" data-f="Blog">Blog</button>
+      <button class="chip" data-f="GBP Post">GBP</button>
+      <button class="chip" data-f="Newsletter">Newsletter</button>
+    </div>
+    <span class="who">Reviewing as <b>Ares Cajas</b></span>
+  </header>
+
+  <div class="cols">
+    <aside class="queue">
+      <div class="queue-head">Pending review · Healthonomic</div>
+      <div id="qlist"></div>
+    </aside>
+
+    <main class="stage" id="stage"></main>
+
+    <aside class="context" id="ctx"></aside>
+  </div>
+</div>
+<div class="toasts" id="toasts"></div>
+
+<script>
+/* ---------- Mock data: mirrors Approvals Queue + linked Campaign Tracker rows ---------- */
+const DATA = [
+ {
+  id:"recIG01", channel:"Instagram", age:"2h",
+  title:"Beat the Heat: Smart Hydration for Adults 50+",
+  headline:"Hydration isn't optional this week.",
+  draft:"Chicago heat index is no joke this week ☀️ For adults managing blood pressure or heart conditions, staying hydrated does more work than you think. Small habit: a glass of water with every medication dose. Your body will thank you.\n\nSame-day appointments available at our Orland Park and Evergreen Park offices.",
+  tags:"#HeatSafety #HealthyAging #ChicagoSuburbs #PrimaryCare",
+  campaign:"August Wave — Summer Heat & Heart Health",
+  brief:"Position Healthonomic as the go-to adult primary care resource during the August heat wave. Focus on hydration and cardiovascular safety for adults 50+.",
+  messaging:"Same-day appointments available. Book online or call 708-671-1500.",
+  audience:"Adults 45–70 in southwest Chicago suburbs",
+  template:"EAHQIHK3UGM", created:"Aug 17, 9:15 AM"
+ },
+ {
+  id:"recGBP01", channel:"GBP Post", age:"2h", location:"Orland Park",
+  title:"Same-Day Appointments in Orland Park",
+  headline:"Same-day visits, no long waits",
+  draft:"Feeling under the weather? Our Orland Park office offers same-day appointments for adult primary care — physicals, chronic condition check-ins, and sick visits. E-visits available too. Call today to get seen today.",
+  hadHashtags:true,
+  campaign:"August Wave — Summer Heat & Heart Health",
+  brief:"Drive call volume to the Orland Park location with a practical same-day availability message.",
+  messaging:"Call 708-671-1500 to book a same-day visit.",
+  audience:"Local searchers near Orland Park",
+  template:"—", created:"Aug 17, 9:15 AM"
+ },
+ {
+  id:"recBLOG01", channel:"Blog", age:"5h",
+  title:"Managing High Blood Pressure in Summer Heat | Healthonomic Primary Care",
+  draft:"", wc:1084,
+  campaign:"August Wave — Summer Heat & Heart Health",
+  brief:"Educational pillar post on how summer heat affects blood pressure management for adults, targeting 'blood pressure summer heat' searches.",
+  messaging:"Schedule a blood pressure check at our Orland Park or Evergreen Park office.",
+  audience:"Adults managing hypertension, southwest Chicago suburbs",
+  template:"—", created:"Aug 17, 6:02 AM"
+ },
+ {
+  id:"recFB01", channel:"Facebook", age:"1d",
+  title:"Medicare Annual Wellness Visits — What's Actually Covered",
+  headline:"Your wellness visit is covered.",
+  draft:"If you're on Medicare, your Annual Wellness Visit is covered at no cost to you — and it's one of the most useful appointments of the year. We review your medications, screenings, and health goals together, and build a prevention plan that actually fits your life.\n\nHaven't scheduled yours this year? Our team in Orland Park and Evergreen Park can get you in this week. #MedicareWellness",
+  campaign:"Q3 — Preventive Care Push",
+  brief:"Demystify the Medicare Annual Wellness Visit and prompt bookings from patients who haven't used their covered visit this year.",
+  messaging:"Book your covered Annual Wellness Visit — call 708-671-1500.",
+  audience:"Medicare-eligible adults 65+",
+  template:"EAHQIEZvpSg", created:"Aug 16, 10:40 AM"
+ },
+ {
+  id:"recNEWS01", channel:"Newsletter", age:"1d",
+  title:"Your August Health Digest — Heat, Heart, and a Checklist",
+  draft:"HEAT & YOUR HEART\nAugust heat puts extra load on your cardiovascular system. If you take blood pressure medication, ask us whether your dose needs a seasonal review — and keep water within reach all day.\n\nTHE 10-MINUTE MEDICATION AUDIT\nBring every bottle (yes, supplements too) to your next visit. Five minutes with our team catches interactions that pharmacy printouts miss.\n\nSAME-DAY & E-VISITS\nSummer schedules are chaotic. Same-day appointments and e-visits are open at both offices all month.\n\nStay well — the Healthonomic team.",
+  campaign:"Monthly Digest — August",
+  brief:"Monthly patient newsletter: one seasonal health theme, one practical checklist item, one access reminder.",
+  messaging:"Book at healthonomic.com or call 708-671-1500.",
+  audience:"Existing patient email list",
+  template:"—", created:"Aug 16, 8:00 AM"
+ }
+];
+
+const BLOG_HTML = `
+<h1>Managing High Blood Pressure in Summer Heat in Orland Park, IL</h1>
+<p><b>Summer heat can lower blood pressure in people taking antihypertensive medication — sometimes too much.</b> Heat causes blood vessels to dilate and fluid loss through sweat, which can amplify the effect of your usual dose and lead to dizziness or falls.</p>
+<p>For the thousands of adults in the southwest suburbs managing hypertension, that makes August a smart time for a <a href="#">blood pressure check</a> rather than a set-and-forget season.</p>
+<h2>Why does heat affect blood pressure medication?</h2>
+<p>Diuretics increase fluid loss that heat is already causing, and vasodilators compound the blood-vessel widening that happens naturally in warm weather. The combination can produce lightheadedness when standing. <span class="cite">(Source: American Heart Association)</span></p>
+<h2>What symptoms should I watch for?</h2>
+<p>Dizziness on standing, unusual fatigue, headaches, and muscle cramps are the common early signals. None of them mean you should change your dose yourself — they mean it's time for a conversation with your <a href="#">primary care provider</a>.</p>
+<h2>Frequently Asked Questions</h2>
+<p><b>Should I stop my medication during a heat wave?</b> No. Never adjust blood pressure medication without medical guidance…</p>
+<p style="color:#9aa1b2">⌄ 6 more sections · FAQ · Sources &amp; References · disclaimer · meta description</p>
+`;
+
+/* ---------- State ---------- */
+let items=[...DATA];
+let filter="All";
+let selId=items[0].id;
+
+const $=s=>document.querySelector(s);
+const qlist=$("#qlist"), stage=$("#stage"), ctx=$("#ctx");
+
+/* ---------- Render queue ---------- */
+function excerpt(it){ return it.channel==="Blog" ? "Complete 1,084-word article · citations verified pattern · meta description included" : it.draft.replace(/\n/g," "); }
+
+function renderQueue(){
+  const vis=items.filter(i=>filter==="All"||i.channel===filter);
+  $("#count").textContent=items.length+" pending";
+  qlist.innerHTML="";
+  if(!vis.length){
+    qlist.innerHTML=`<div class="empty-queue"><span class="big">0</span>Queue clear${filter!=="All"?" for "+filter:""}.<br>Plan Promoter drips the next brief on schedule.</div>`;
+    return;
+  }
+  vis.forEach(it=>{
+    const d=document.createElement("div");
+    d.className="qcard"+(it.id===selId?" sel":"");
+    d.tabIndex=0;
+    d.innerHTML=`
+      <div class="qtop">
+        <span class="ch-badge ch-${it.channel.split(" ")[0]}">${it.channel}</span>
+        ${it.location?`<span style="font-size:11px;color:var(--muted)">📍 ${it.location}</span>`:""}
+        <span class="qage">${it.age}</span>
+      </div>
+      <div class="qtitle">${it.title}</div>
+      <div class="qexcerpt">${excerpt(it)}</div>
+      <div class="qcamp">↳ ${it.campaign}</div>
+      ${it.hadHashtags?`<span class="flag">⚠ hashtags stripped by Prep Post</span>`:""}
+      <div class="quick">
+        <button class="qa-approve" data-act="approve" data-id="${it.id}">✓ Approve</button>
+        <button class="qa-back" data-act="back" data-id="${it.id}">↩ Send back</button>
+      </div>`;
+    d.addEventListener("click",e=>{
+      if(e.target.dataset.act) return;
+      selId=it.id; renderAll();
+    });
+    qlist.appendChild(d);
+  });
+}
+
+/* ---------- Render stage (channel-accurate) ---------- */
+function renderStage(){
+  const it=items.find(i=>i.id===selId);
+  if(!it){ stage.innerHTML=`<div class="empty-queue" style="margin:auto"><span class="big">✓</span>All caught up.</div>`; return; }
+  let inner="", label=it.channel;
+  if(it.channel==="Instagram"){
+    const cap=it.draft.split("\n")[0];
+    inner=`<div class="phone"><div class="phone-screen">
+      <div class="ig-head"><div class="avatar">H</div><div><div class="ig-name">healthonomicprimarycare</div><div class="ig-loc">Orland Park, Illinois</div></div></div>
+      <div class="ig-img"><span class="tpl">tpl ${it.template}</span><div class="brand-line"></div><h3>${it.headline}</h3></div>
+      <div class="ig-actions">♡ &nbsp; 💬 &nbsp; ↗</div>
+      <div class="ig-cap"><span class="u">healthonomicprimarycare</span> ${cap.slice(0,125)}<span class="more">… more</span><br><span class="tags">${it.tags}</span></div>
+    </div></div>`;
+    label="Instagram · feed preview · caption truncates at 125 chars";
+  } else if(it.channel==="Facebook"){
+    inner=`<div class="fbcard">
+      <div class="fb-head"><div class="avatar">H</div><div><div class="fb-name">Healthonomic Primary Care</div><div class="fb-meta">Sponsored-free · Just now · 🌐</div></div></div>
+      <div class="fb-body">${it.draft}</div>
+      <div class="fb-img"><h3>${it.headline}</h3></div>
+      <div class="fb-bar"><span>👍 Like</span><span>💬 Comment</span><span>↗ Share</span></div>
+    </div>`;
+    label="Facebook · page post preview · will publish as unpublished draft first (draft mode)";
+  } else if(it.channel==="GBP Post"){
+    inner=`<div><div class="gbp">
+      <div class="gbp-img"><h3>${it.headline}</h3></div>
+      <div class="gbp-body">
+        <div class="gbp-src">Healthonomic Primary Care · ${it.location}</div>
+        <div class="gbp-text">${it.draft}</div>
+        <span class="gbp-cta">Call today</span>
+      </div>
+    </div>
+    ${it.hadHashtags?`<div class="gbp-note"><b>Prep Post warning:</b> 3 hashtags were stripped before truncation (GBP does not support hashtags). Text shown is post-strip.</div>`:""}
+    <div class="gbp-note" style="background:#fdecec;color:#b3261e;margin-top:8px"><b>No draft stage on GBP:</b> approving this publishes immediately once the publisher runs live.</div></div>`;
+    label=`GBP Post · ${it.location} · CALL CTA → 708-671-1500`;
+  } else if(it.channel==="Blog"){
+    inner=`<div class="blog">
+      <div class="blog-chrome"><i></i><i></i><i></i><span class="blog-url">healthonomic.com/blog/blood-pressure-summer-heat/</span></div>
+      <div class="blog-body">${BLOG_HTML}</div>
+    </div><div class="wc">word_count: ${it.wc} · brand render: #15366E / #2351A3 · internal links: 2 of 4 max</div>`;
+    label="Blog · rendered with site typography · publishes via GitHub → Netlify";
+  } else {
+    const body=it.draft.replace(/^([A-Z0-9 &'\-]{6,})$/gm,"<h4>$1</h4>");
+    inner=`<div class="mail">
+      <div class="mail-head"><div class="mail-sub">${it.title}</div><div class="mail-from">Healthonomic Primary Care &lt;hello@healthonomic.com&gt; → patient list</div></div>
+      <div class="mail-body">${body}</div>
+    </div>`;
+    label="Newsletter · email client preview";
+  }
+  stage.innerHTML=`<div class="stage-label">Previewing · <b>${label}</b></div>${inner}`;
+}
+
+/* ---------- Render context rail ---------- */
+function renderCtx(){
+  const it=items.find(i=>i.id===selId);
+  if(!it){ ctx.innerHTML=""; return; }
+  ctx.innerHTML=`
+    <div class="ctx-sec"><h4>Campaign brief</h4>
+      <div class="brief-card">
+        <div class="row"><span class="k">Brief / Objective</span>${it.brief}</div>
+        <div class="row"><span class="k">Key messaging (CTA source)</span>${it.messaging}</div>
+        <div class="row"><span class="k">Target audience</span>${it.audience}</div>
+      </div>
+    </div>
+    <div class="ctx-sec"><h4>Record</h4>
+      <div class="meta-list">
+        <div class="m"><span class="k">Record</span><span class="v">${it.id}</span></div>
+        <div class="m"><span class="k">Status</span><span class="v">Pending</span></div>
+        <div class="m"><span class="k">Created</span><span class="v">${it.created}</span></div>
+        <div class="m"><span class="k">Canva template</span><span class="v">${it.template}</span></div>
+        ${it.location?`<div class="m"><span class="k">GBP location</span><span class="v">${it.location}</span></div>`:""}
+      </div>
+    </div>
+    <div class="ctx-sec" style="flex:1;display:flex;flex-direction:column;gap:8px">
+      <h4>Reviewer notes</h4>
+      <textarea class="notes" id="notes" placeholder="Required for Send back — lands in Reviewer Notes and triggers the Revision Loop."></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-approve" data-act="approve" data-id="${it.id}">✓ Approve${it.channel==="GBP Post"?" (publishes)":""}</button>
+      <button class="btn btn-back" data-act="back" data-id="${it.id}">↩ Send back for revision</button>
+      <div class="btn-note">Approve → <code>Status: Approved</code> → Airtable automation fires n8n webhook → Dispatcher routes to publisher</div>
+    </div>`;
+}
+
+/* ---------- Actions ---------- */
+function toast(msg,sub,cls){
+  const t=document.createElement("div");
+  t.className="toast "+cls;
+  t.innerHTML=`<span>${cls==="ok"?"✓":"↩"}</span><span>${msg}${sub?`<small>${sub}</small>`:""}</span>`;
+  $("#toasts").appendChild(t);
+  setTimeout(()=>{t.style.opacity=0;t.style.transition="opacity .3s";setTimeout(()=>t.remove(),300)},3600);
+}
+function removeItem(id){
+  const idx=items.findIndex(i=>i.id===id);
+  const it=items[idx];
+  items.splice(idx,1);
+  if(selId===id){ const vis=items.filter(i=>filter==="All"||i.channel===filter); selId=vis.length?vis[0].id:null; }
+  return it;
+}
+function publisherFor(ch){
+  return ch==="Blog"?"Blog Publisher (GitHub → Netlify)":ch==="GBP Post"?"GBP Publisher":ch==="Newsletter"?"Newsletter Publisher":"Meta Publisher";
+}
+document.addEventListener("click",e=>{
+  const act=e.target.dataset.act; if(!act) return;
+  const id=e.target.dataset.id;
+  const it=items.find(i=>i.id===id);
+  if(act==="approve"){
+    const card=[...qlist.children].find(c=>c.querySelector(`[data-id="${id}"]`));
+    if(card){card.style.maxHeight=card.offsetHeight+"px";requestAnimationFrame(()=>card.classList.add("leaving"));}
+    setTimeout(()=>{ removeItem(id); renderAll(); },360);
+    toast(`Approved — ${it.title.slice(0,42)}…`,`Status → Approved · webhook fires ${publisherFor(it.channel)}`,"ok");
+  }
+  if(act==="back"){
+    const notesEl=$("#notes");
+    const note=(selId===id&&notesEl)?notesEl.value.trim():"";
+    if(!note){
+      selId=id; renderAll();
+      const n=$("#notes"); n.classList.add("err"); n.focus();
+      n.placeholder="A note is required — the Revision Loop needs direction, not just a rejection.";
+      return;
+    }
+    const card=[...qlist.children].find(c=>c.querySelector(`[data-id="${id}"]`));
+    if(card){card.style.maxHeight=card.offsetHeight+"px";requestAnimationFrame(()=>card.classList.add("leaving"));}
+    setTimeout(()=>{ removeItem(id); renderAll(); },360);
+    toast(`Sent back — ${it.title.slice(0,42)}…`,`Status → Needs Revision · note saved to Reviewer Notes · Revision Loop queued`,"warn");
+  }
+});
+
+/* ---------- Filters ---------- */
+$("#filters").addEventListener("click",e=>{
+  if(!e.target.dataset.f) return;
+  filter=e.target.dataset.f;
+  [...$("#filters").children].forEach(c=>c.classList.toggle("on",c.dataset.f===filter));
+  const vis=items.filter(i=>filter==="All"||i.channel===filter);
+  if(vis.length && !vis.find(i=>i.id===selId)) selId=vis[0].id;
+  renderAll();
+});
+
+function renderAll(){ renderQueue(); renderStage(); renderCtx(); }
+renderAll();
+</script>
+</body>
+</html>
