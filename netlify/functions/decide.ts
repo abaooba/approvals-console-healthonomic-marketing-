@@ -19,9 +19,13 @@ export const handler: Handler = async (event) => {
 
   let body: Record<string, unknown>;
   try {
-    body = JSON.parse(event.body ?? "") as Record<string, unknown>;
+    const parsed: unknown = JSON.parse(event.body ?? "");
+    if (typeof parsed !== "object" || parsed === null) {
+      throw new Error("not an object");
+    }
+    body = parsed as Record<string, unknown>;
   } catch {
-    return json(400, { error: "Request body must be JSON" });
+    return json(400, { error: "Request body must be a JSON object" });
   }
 
   const recordId = typeof body.recordId === "string" ? body.recordId : "";

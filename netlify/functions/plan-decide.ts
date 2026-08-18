@@ -17,9 +17,13 @@ export const handler: Handler = async (event) => {
 
   let body: Record<string, unknown>;
   try {
-    body = JSON.parse(event.body ?? "") as Record<string, unknown>;
+    const parsed: unknown = JSON.parse(event.body ?? "");
+    if (typeof parsed !== "object" || parsed === null) {
+      throw new Error("not an object");
+    }
+    body = parsed as Record<string, unknown>;
   } catch {
-    return json(400, { error: "Request body must be JSON" });
+    return json(400, { error: "Request body must be a JSON object" });
   }
 
   const action = body.action;
@@ -49,20 +53,34 @@ export const handler: Handler = async (event) => {
       // Airtable caps batch updates at 10 records per request.
       for (let i = 0; i < recordIds.length; i += 10) {
         const chunk = recordIds.slice(i, i + 10);
-        const result = await airtableRequest<{ records: unknown[] }>(
-          cfg.pat,
-          tablePath,
-          {
-            method: "PATCH",
-            body: JSON.stringify({
-              records: chunk.map((id) => ({
-                id,
-                fields: { "Plan Status": "Approved" },
-              })),
-            }),
-          },
-        );
-        updated.push(...result.records);
+        try {
+          const result = await airtableRequest<{ records: unknown[] }>(
+            cfg.pat,
+            tablePath,
+            {
+              method: "PATCH",
+              body: JSON.stringify({
+                records: chunk.map((id) => ({
+                  id,
+                  fields: { "Plan Status": "Approved" },
+                })),
+              }),
+            },
+          );
+          updated.push(...result.records);
+        } catch (err) {
+          // Earlier chunks are already committed in Airtable — say so instead
+          // of reporting the whole approval as failed.
+          if (updated.length > 0) {
+            const message =
+              err instanceof Error ? err.message : "Unexpected error";
+            return json(502, {
+              error: `${message} — ${updated.length} of ${recordIds.length} briefs were already approved before the failure`,
+              records: updated,
+            });
+          }
+          throw err;
+        }
       }
       return json(200, { records: updated });
     }

@@ -12,6 +12,7 @@ import type { DecisionAction, QueueRecord } from "./types";
 
 const LEAVE_MS = 360;
 const REVIEWER_KEY = "reviewerName";
+const PLAN_REFRESH_MS = 90_000;
 const GENERATE_WEBHOOK =
   "https://kcajas3000.app.n8n.cloud/webhook/marketing-agent-hx3m9v";
 
@@ -35,6 +36,18 @@ export default function App() {
   const [confirmRecord, setConfirmRecord] = useState<QueueRecord | null>(null);
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [generating, setGenerating] = useState(false);
+
+  // The Plan Quarter auto-refresh timer lives here (not in PlanView) so it
+  // survives tab switches; PlanView reloads whenever the tick bumps.
+  const [planRefreshTick, setPlanRefreshTick] = useState(0);
+  const planTimer = useRef<number | null>(null);
+  const schedulePlanRefresh = useCallback(() => {
+    if (planTimer.current) window.clearTimeout(planTimer.current);
+    planTimer.current = window.setTimeout(
+      () => setPlanRefreshTick((tick) => tick + 1),
+      PLAN_REFRESH_MS,
+    );
+  }, []);
 
   const [reviewerName, setReviewerName] = useState(() => {
     try {
@@ -288,7 +301,11 @@ export default function App() {
           refreshing={loading}
         />
         {tab === "plan" ? (
-          <PlanView pushToast={pushToast} />
+          <PlanView
+            pushToast={pushToast}
+            refreshTick={planRefreshTick}
+            onPlannerStarted={schedulePlanRefresh}
+          />
         ) : (
         <div className="cols">
           <Queue

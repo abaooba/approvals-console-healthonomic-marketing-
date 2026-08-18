@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   approvePlanGroup,
   fetchPlans,
@@ -10,7 +10,6 @@ import type { PlanRecord } from "../types";
 
 const PLAN_WEBHOOK =
   "https://kcajas3000.app.n8n.cloud/webhook/plan-quarter-hx3m9v";
-const AUTO_REFRESH_MS = 90_000;
 const GROUP_HINT =
   "Approved themes are promoted to the Campaign Tracker and drafted 7 days before their scheduled date.";
 const STATUS_WORST_FIRST = ["Rejected", "Needs Revision", "Proposed", "Approved"];
@@ -60,9 +59,17 @@ interface PlanViewProps {
     sub: string | undefined,
     cls: "ok" | "warn" | "err",
   ) => void;
+  // The 90s post-plan refresh timer lives in App so it survives tab switches;
+  // it fires by bumping refreshTick, which re-runs load() here.
+  refreshTick: number;
+  onPlannerStarted: () => void;
 }
 
-export default function PlanView({ pushToast }: PlanViewProps) {
+export default function PlanView({
+  pushToast,
+  refreshTick,
+  onPlannerStarted,
+}: PlanViewProps) {
   const [records, setRecords] = useState<PlanRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,9 +80,9 @@ export default function PlanView({ pushToast }: PlanViewProps) {
   );
   const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set());
   const [approvingGroup, setApprovingGroup] = useState<string | null>(null);
-  const [reviseId, setReviseId] = useState<string | null>(null);
-  const [noteText, setNoteText] = useState("");
-  const refreshTimer = useRef<number | null>(null);
+  const [revise, setRevise] = useState<{ id: string; text: string } | null>(
+    null,
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -94,10 +101,7 @@ export default function PlanView({ pushToast }: PlanViewProps) {
 
   useEffect(() => {
     void load();
-    return () => {
-      if (refreshTimer.current) window.clearTimeout(refreshTimer.current);
-    };
-  }, [load]);
+  }, [load, refreshTick]);
 
   const planQuarter = useCallback(async () => {
     setPlanning(true);
@@ -109,8 +113,7 @@ export default function PlanView({ pushToast }: PlanViewProps) {
         "~15 briefs land here for review in a few minutes.",
         "ok",
       );
-      if (refreshTimer.current) window.clearTimeout(refreshTimer.current);
-      refreshTimer.current = window.setTimeout(() => void load(), AUTO_REFRESH_MS);
+      onPlannerStarted();
     } catch {
       pushToast(
         "Planner didn't start (workflow may be inactive in n8n).",
@@ -120,7 +123,7 @@ export default function PlanView({ pushToast }: PlanViewProps) {
     } finally {
       setPlanning(false);
     }
-  }, [load, pushToast]);
+  }, [onPlannerStarted, pushToast]);
 
   const markBusy = useCallback((ids: string[], busy: boolean) => {
     setBusyIds((prev) => {
@@ -167,6 +170,8 @@ export default function PlanView({ pushToast }: PlanViewProps) {
       );
     } catch (err) {
       pushToast(`Couldn't approve theme — ${group.name}`, errMessage(err), "err");
+      // A batch failure can leave part of the theme approved — resync.
+      void load();
     } finally {
       setApprovingGroup(null);
       markBusy(ids, false);
@@ -191,14 +196,13 @@ export default function PlanView({ pushToast }: PlanViewProps) {
   };
 
   const sendRevision = async (record: PlanRecord) => {
-    const note = noteText.trim();
+    const note = revise?.id === record.id ? revise.text.trim() : "";
     if (!note) return;
     markBusy([record.id], true);
     try {
       await revisePlan(record.id, note);
       applyLocal([record.id], "Needs Revision", note);
-      setReviseId(null);
-      setNoteText("");
+      setRevise((cur) => (cur?.id === record.id ? null : cur));
       pushToast(
         `Sent for revision — ${record.campaignName}`,
         "Note saved to Reviewer Notes",
@@ -302,9 +306,9 @@ export default function PlanView({ pushToast }: PlanViewProps) {
                       : "✓ Approve Theme"}
                   </button>
                 </div>
+                <div className="pg-hint">{GROUP_HINT}</div>
                 {open && (
                   <>
-                    <div className="pg-hint">{GROUP_HINT}</div>
                     {group.records.map((record) => {
                       const rowOpen = expandedRows.has(record.id);
                       const busy = busyIds.has(record.id);
@@ -375,30 +379,35 @@ export default function PlanView({ pushToast }: PlanViewProps) {
                                 <button
                                   className="pr-btn pr-revise"
                                   disabled={busy}
-                                  onClick={() => {
-                                    setReviseId(
-                                      reviseId === record.id ? null : record.id,
-                                    );
-                                    setNoteText("");
-                                  }}
+                                  onClick={() =>
+                                    setRevise((cur) =>
+                                      cur?.id === record.id
+                                        ? null
+                                        : { id: record.id, text: "" },
+                                    )
+                                  }
                                 >
                                   ↩ Needs Revision
                                 </button>
                               </div>
-                              {reviseId === record.id && (
+                              {revise !== null && revise.id === record.id && (
                                 <div className="pr-note">
                                   <textarea
                                     className="notes pr-note-input"
-                                    value={noteText}
+                                    value={revise.text}
                                     onChange={(event) =>
-                                      setNoteText(event.target.value)
+                                      setRevise((cur) =>
+                                        cur
+                                          ? { ...cur, text: event.target.value }
+                                          : cur,
+                                      )
                                     }
                                     placeholder="What should change? Lands in Reviewer Notes."
                                     autoFocus
                                   />
                                   <button
                                     className="pr-btn pr-note-save"
-                                    disabled={busy || !noteText.trim()}
+                                    disabled={busy || !revise.text.trim()}
                                     onClick={() => void sendRevision(record)}
                                   >
                                     Save

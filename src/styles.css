@@ -30,12 +30,14 @@ button:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outl
 
 /* ===== Shell ===== */
 .shell{display:grid;grid-template-rows:56px 1fr;height:100vh}
-header{display:flex;align-items:center;gap:20px;padding:0 20px;background:var(--card);border-bottom:1px solid var(--line)}
+header{display:flex;align-items:center;gap:14px;padding:0 20px;background:var(--card);border-bottom:1px solid var(--line);white-space:nowrap}
+header>*{flex-shrink:0}
 .wordmark{font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--navy);letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
 .wordmark .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);display:inline-block}
 .pending-pill{font-size:12.5px;font-weight:600;background:var(--navy);color:#fff;border-radius:999px;padding:3px 10px}
-.filters{display:flex;gap:6px;margin-left:auto}
-.chip{font-size:12.5px;font-weight:600;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:5px 12px;background:var(--card);transition:.15s}
+.filters{display:flex;gap:6px;margin-left:auto;min-width:0;flex-shrink:1;overflow-x:auto;scrollbar-width:none}
+.filters::-webkit-scrollbar{display:none}
+.chip{font-size:12.5px;font-weight:600;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:5px 11px;background:var(--card);transition:.15s;flex-shrink:0}
 .chip:hover{border-color:var(--accent);color:var(--accent)}
 .chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
 .chip:disabled{opacity:.55;cursor:default;pointer-events:none}
@@ -46,7 +48,7 @@ header{display:flex;align-items:center;gap:20px;padding:0 20px;background:var(--
 .who{font-size:12.5px;color:var(--muted);margin-left:16px}
 .who.push{margin-left:auto}
 .who b{color:var(--ink)}
-.who-name{font-family:var(--font-ui);font-size:12.5px;font-weight:700;color:var(--ink);border:none;background:transparent;border-bottom:1px dashed var(--line);padding:1px 2px;width:110px}
+.who-name{font-family:var(--font-ui);font-size:12.5px;font-weight:700;color:var(--ink);border:none;background:transparent;border-bottom:1px dashed var(--line);padding:1px 2px;width:100px}
 .who-name:focus{outline:none;border-bottom-color:var(--accent)}
 .who-name::placeholder{color:#a6adc0;font-weight:500}
 
