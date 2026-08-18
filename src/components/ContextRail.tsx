@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { formatCreated } from "../lib/format";
+import { formatCreated, parseReviewerNotes } from "../lib/format";
 import type { QueueRecord } from "../types";
 
 const NOTES_PLACEHOLDER =
@@ -12,6 +12,7 @@ interface ContextRailProps {
   notes: string;
   notesErr: boolean;
   focusTick: number;
+  busy: boolean;
   onNotesChange: (value: string) => void;
   onApprove: () => void;
   onSendBack: () => void;
@@ -22,6 +23,7 @@ export default function ContextRail({
   notes,
   notesErr,
   focusTick,
+  busy,
   onNotesChange,
   onApprove,
   onSendBack,
@@ -86,6 +88,24 @@ export default function ContextRail({
           )}
         </div>
       </div>
+      {record.reviewerNotes && (
+        <div className="ctx-sec">
+          <h4>Comment history</h4>
+          <div className="cthread">
+            {parseReviewerNotes(record.reviewerNotes).map((entry, i) => (
+              <div className="cmt" key={i}>
+                {(entry.name || entry.time) && (
+                  <div className="cmt-meta">
+                    {entry.name || "Note"}
+                    {entry.time ? ` · ${entry.time}` : ""}
+                  </div>
+                )}
+                <div className="cmt-text">{entry.text}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="ctx-sec ctx-notes">
         <h4>Reviewer notes</h4>
         <textarea
@@ -97,11 +117,11 @@ export default function ContextRail({
         />
       </div>
       <div className="btn-row">
-        <button className="btn btn-approve" onClick={onApprove}>
+        <button className="btn btn-approve" onClick={onApprove} disabled={busy}>
           ✓ Approve{record.channel === "GBP Post" ? " (publishes)" : ""}
         </button>
-        <button className="btn btn-back" onClick={onSendBack}>
-          ↩ Send back for revision
+        <button className="btn btn-back" onClick={onSendBack} disabled={busy}>
+          {busy ? "Sending…" : "↩ Send back with comments"}
         </button>
         <div className="btn-note">
           Approve → <code>Status: Approved</code> → Airtable automation fires

@@ -13,6 +13,7 @@ export interface QueueRecord {
   entity: string;
   gbpLocation: string | null;
   previewUrl: string | null;
+  reviewerNotes: string;
   createdTime: string;
   campaign: Campaign | null;
 }
@@ -23,6 +24,13 @@ export interface QueueResponse {
 }
 
 export type DecisionAction = "approve" | "revise";
+
+// Revisions and group approvals report whether the n8n webhook fired; a miss
+// is a soft failure — the workflow self-searches on its next run.
+export interface DecisionResponse {
+  reviewerNotes?: string;
+  webhook_fired?: boolean;
+}
 
 export interface PlanRecord {
   id: string;

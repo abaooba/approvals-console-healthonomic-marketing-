@@ -22,6 +22,7 @@ const QUEUE_FIELDS = [
   "GBP Location",
   "Linked Campaign",
   "Draft Preview",
+  "Reviewer Notes",
 ];
 
 const CAMPAIGN_FIELDS = [
@@ -110,6 +111,7 @@ export const handler: Handler = async (event) => {
         entity: str(fields["Entity"]),
         gbpLocation: str(fields["GBP Location"]) || null,
         previewUrl: attachments[0]?.url ?? null,
+        reviewerNotes: str(fields["Reviewer Notes"]),
         createdTime: record.createdTime,
         campaign: linked.length > 0 ? (campaigns.get(linked[0]) ?? null) : null,
       };

@@ -34,6 +34,7 @@ export default function App() {
   const [focusNotesTick, setFocusNotesTick] = useState(0);
 
   const [confirmRecord, setConfirmRecord] = useState<QueueRecord | null>(null);
+  const [decidingId, setDecidingId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [generating, setGenerating] = useState(false);
 
@@ -174,6 +175,7 @@ export default function App() {
     ) => {
       if (inFlightIds.current.has(record.id)) return;
       inFlightIds.current.add(record.id);
+      setDecidingId(record.id);
 
       // Animate the card out exactly like the mockup: freeze its height,
       // then let .leaving collapse it.
@@ -194,7 +196,12 @@ export default function App() {
       }, LEAVE_MS);
 
       try {
-        await sendDecision(record.id, action, noteText, reviewerName.trim());
+        const response = await sendDecision(
+          record.id,
+          action,
+          noteText,
+          reviewerName.trim(),
+        );
         if (action === "approve") {
           pushToast(
             `Approved — ${truncateTitle(record.title)}`,
@@ -204,7 +211,9 @@ export default function App() {
         } else {
           pushToast(
             `Sent back — ${truncateTitle(record.title)}`,
-            "Status → Needs Revision · note saved to Reviewer Notes · Revision Loop queued",
+            response.webhook_fired === false
+              ? "Comment saved, but the revision webhook didn't fire — n8n picks it up on its next run."
+              : "Sent back for revision — the agent will redraft.",
             "warn",
           );
         }
@@ -238,6 +247,8 @@ export default function App() {
           message,
           "err",
         );
+      } finally {
+        setDecidingId((cur) => (cur === record.id ? null : cur));
       }
     },
     [pushToast, refresh, reviewerName],
@@ -305,6 +316,7 @@ export default function App() {
             pushToast={pushToast}
             refreshTick={planRefreshTick}
             onPlannerStarted={schedulePlanRefresh}
+            reviewerName={reviewerName.trim()}
           />
         ) : (
         <div className="cols">
@@ -336,6 +348,7 @@ export default function App() {
             notes={notes}
             notesErr={notesErr}
             focusTick={focusNotesTick}
+            busy={selected !== null && decidingId === selected.id}
             onNotesChange={(value) => {
               setNotes(value);
               if (notesErr) setNotesErr(false);

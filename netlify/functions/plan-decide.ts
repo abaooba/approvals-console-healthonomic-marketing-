@@ -6,6 +6,7 @@ import {
   getPlansTable,
   json,
 } from "./lib/airtable";
+import { applyRevision, fireWebhook } from "./lib/revision";
 
 // The client only ever names an action — the status written to Airtable is
 // decided here, never accepted from the request body.
@@ -74,15 +75,24 @@ export const handler: Handler = async (event) => {
           if (updated.length > 0) {
             const message =
               err instanceof Error ? err.message : "Unexpected error";
+            // The records that did commit are Approved — still kick the
+            // promoter so they don't wait for a manual run.
+            const webhookFired = await fireWebhook("N8N_WEBHOOK_PLAN_PROMOTER", {
+              record_ids: recordIds.slice(0, updated.length),
+            });
             return json(502, {
               error: `${message} — ${updated.length} of ${recordIds.length} briefs were already approved before the failure`,
               records: updated,
+              webhook_fired: webhookFired,
             });
           }
           throw err;
         }
       }
-      return json(200, { records: updated });
+      const webhookFired = await fireWebhook("N8N_WEBHOOK_PLAN_PROMOTER", {
+        record_ids: recordIds,
+      });
+      return json(200, { records: updated, webhook_fired: webhookFired });
     }
 
     const recordId = typeof body.recordId === "string" ? body.recordId : "";
@@ -104,17 +114,24 @@ export const handler: Handler = async (event) => {
     if (!notes) {
       return json(400, { error: "Reviewer notes are required for a revision" });
     }
-    const record = await airtableRequest(
-      cfg.pat,
-      `${tablePath}/${encodeURIComponent(recordId)}`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({
-          fields: { "Plan Status": "Needs Revision", "Reviewer Notes": notes },
-        }),
-      },
-    );
-    return json(200, { record });
+    const reviewedBy =
+      typeof body.reviewedBy === "string"
+        ? body.reviewedBy.trim().slice(0, 200)
+        : "";
+    const result = await applyRevision({
+      pat: cfg.pat,
+      tablePath,
+      recordId,
+      statusField: "Plan Status",
+      comment: notes,
+      reviewer: reviewedBy,
+      webhookEnv: "N8N_WEBHOOK_PLAN_REVISION",
+    });
+    return json(200, {
+      record: result.record,
+      reviewerNotes: result.reviewerNotes,
+      webhook_fired: result.webhookFired,
+    });
   } catch (err) {
     if (err instanceof AirtableError) return json(502, { error: err.message });
     return json(500, {

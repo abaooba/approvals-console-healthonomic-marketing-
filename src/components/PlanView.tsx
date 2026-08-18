@@ -63,12 +63,14 @@ interface PlanViewProps {
   // it fires by bumping refreshTick, which re-runs load() here.
   refreshTick: number;
   onPlannerStarted: () => void;
+  reviewerName: string;
 }
 
 export default function PlanView({
   pushToast,
   refreshTick,
   onPlannerStarted,
+  reviewerName,
 }: PlanViewProps) {
   const [records, setRecords] = useState<PlanRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -161,11 +163,15 @@ export default function PlanView({
     setApprovingGroup(group.name);
     markBusy(ids, true);
     try {
-      await approvePlanGroup(ids);
+      const response = await approvePlanGroup(ids);
       applyLocal(ids, "Approved");
       pushToast(
         `Theme approved — ${group.name}`,
-        `${ids.length} brief${ids.length === 1 ? "" : "s"} set to Approved`,
+        `${ids.length} brief${ids.length === 1 ? "" : "s"} set to Approved · ${
+          response.webhook_fired === false
+            ? "promoter webhook didn't fire — picked up on its next run"
+            : "promoter fired"
+        }`,
         "ok",
       );
     } catch (err) {
@@ -200,12 +206,18 @@ export default function PlanView({
     if (!note) return;
     markBusy([record.id], true);
     try {
-      await revisePlan(record.id, note);
-      applyLocal([record.id], "Needs Revision", note);
+      const response = await revisePlan(record.id, note, reviewerName);
+      applyLocal(
+        [record.id],
+        "Needs Revision",
+        response.reviewerNotes ?? note,
+      );
       setRevise((cur) => (cur?.id === record.id ? null : cur));
       pushToast(
         `Sent for revision — ${record.campaignName}`,
-        "Note saved to Reviewer Notes",
+        response.webhook_fired === false
+          ? "Comment saved, but the revision webhook didn't fire — n8n picks it up on its next run."
+          : "Sent back for revision — the agent will redraft.",
         "warn",
       );
     } catch (err) {
@@ -387,7 +399,9 @@ export default function PlanView({
                                     )
                                   }
                                 >
-                                  ↩ Needs Revision
+                                  {record.planStatus === "Needs Revision"
+                                    ? "💬 Add comment"
+                                    : "↩ Needs Revision"}
                                 </button>
                               </div>
                               {revise !== null && revise.id === record.id && (
@@ -410,7 +424,11 @@ export default function PlanView({
                                     disabled={busy || !revise.text.trim()}
                                     onClick={() => void sendRevision(record)}
                                   >
-                                    Save
+                                    {busy
+                                      ? "Sending…"
+                                      : record.planStatus === "Needs Revision"
+                                        ? "Add comment & re-run revision"
+                                        : "Send back with comments"}
                                   </button>
                                 </div>
                               )}

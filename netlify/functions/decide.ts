@@ -4,15 +4,13 @@ import {
   airtableRequest,
   getConfig,
   json,
+  type AirtableRecord,
 } from "./lib/airtable";
+import { appendNotes, applyRevision, formatNoteEntry } from "./lib/revision";
 
 // The client only ever names an action — the status written to Airtable is
 // decided here, never accepted from the request body. Access control is
 // Netlify's site-wide password protection, which fronts /api/* too.
-const STATUS_FOR_ACTION = {
-  approve: "Approved",
-  revise: "Needs Revision",
-} as const;
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") return json(405, { error: "Method not allowed" });
@@ -46,19 +44,47 @@ export const handler: Handler = async (event) => {
     });
   }
 
-  const fields: Record<string, string> = {
-    Status: STATUS_FOR_ACTION[action],
-  };
-  if (reviewedBy) fields["Reviewed By"] = reviewedBy;
-  if (notes) fields["Reviewer Notes"] = notes;
-
   try {
     const cfg = getConfig();
-    const record = await airtableRequest(
-      cfg.pat,
-      `${cfg.baseId}/${encodeURIComponent(cfg.queueTable)}/${encodeURIComponent(recordId)}`,
-      { method: "PATCH", body: JSON.stringify({ fields }) },
-    );
+    const tablePath = `${cfg.baseId}/${encodeURIComponent(cfg.queueTable)}`;
+
+    if (action === "revise") {
+      const result = await applyRevision({
+        pat: cfg.pat,
+        tablePath,
+        recordId,
+        statusField: "Status",
+        comment: notes,
+        reviewer: reviewedBy,
+        extraFields: reviewedBy ? { "Reviewed By": reviewedBy } : undefined,
+        webhookEnv: "N8N_WEBHOOK_REVISION",
+      });
+      return json(200, {
+        record: result.record,
+        reviewerNotes: result.reviewerNotes,
+        webhook_fired: result.webhookFired,
+      });
+    }
+
+    const recordPath = `${tablePath}/${encodeURIComponent(recordId)}`;
+    const fields: Record<string, string> = { Status: "Approved" };
+    if (reviewedBy) fields["Reviewed By"] = reviewedBy;
+    if (notes) {
+      // A note on approval joins the comment history too — never overwrite it.
+      const current = await airtableRequest<AirtableRecord>(cfg.pat, recordPath);
+      const existing =
+        typeof current.fields["Reviewer Notes"] === "string"
+          ? (current.fields["Reviewer Notes"] as string)
+          : "";
+      fields["Reviewer Notes"] = appendNotes(
+        existing,
+        formatNoteEntry(reviewedBy, notes),
+      );
+    }
+    const record = await airtableRequest(cfg.pat, recordPath, {
+      method: "PATCH",
+      body: JSON.stringify({ fields }),
+    });
     return json(200, { record });
   } catch (err) {
     if (err instanceof AirtableError) return json(502, { error: err.message });

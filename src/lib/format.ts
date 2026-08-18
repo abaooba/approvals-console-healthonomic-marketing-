@@ -105,3 +105,36 @@ export function initialOf(entity: string): string {
 export function igHandle(entity: string): string {
   return entity.toLowerCase().replace(/[^a-z0-9._]/g, "") || "account";
 }
+
+export interface NoteEntry {
+  name: string;
+  time: string;
+  text: string;
+}
+
+const NOTE_MARKER = /\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}) — ([^\]]*)\]\s*/g;
+
+// Reviewer Notes is an append-only log of "[timestamp — name] comment"
+// entries. Legacy free text that predates the marker format is surfaced as a
+// single unattributed entry at the top instead of breaking the thread.
+export function parseReviewerNotes(notes: string): NoteEntry[] {
+  const matches = [...notes.matchAll(NOTE_MARKER)];
+  if (matches.length === 0) {
+    const text = notes.trim();
+    return text ? [{ name: "", time: "", text }] : [];
+  }
+  const entries: NoteEntry[] = [];
+  const lead = notes.slice(0, matches[0].index ?? 0).trim();
+  if (lead) entries.push({ name: "", time: "", text: lead });
+  matches.forEach((match, i) => {
+    const start = (match.index ?? 0) + match[0].length;
+    const end =
+      i + 1 < matches.length ? (matches[i + 1].index ?? notes.length) : notes.length;
+    entries.push({
+      time: match[1],
+      name: match[2].trim(),
+      text: notes.slice(start, end).trim(),
+    });
+  });
+  return entries;
+}
